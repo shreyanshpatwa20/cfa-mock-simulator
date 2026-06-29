@@ -265,6 +265,21 @@ elif st.session_state.step == "dashboard":
             expander_title = f"{status_color} Question {row['Question ID']} | Topic: {row['Topic Area']} | Time: {row['Time Spent (s)']}s"
             
             with st.expander(expander_title):
+                # --- NEW: DISPLAY QUESTION STEM ---
+                st.markdown(f"**Question:** {row['Question ID']}")
+                st.write(row.get('stem', 'Stem not available')) 
+                
+                # --- NEW: DISPLAY OPTIONS ---
+                st.write("**Options:**")
+                # We need to find the original question object to get options clearly
+                q_obj = next((q for q in st.session_state.questions if q["question_id"] == row["Question ID"]), None)
+                if q_obj:
+                    for opt_key, opt_val in q_obj["options"].items():
+                        st.write(f"- {opt_key}: {opt_val}")
+                
+                st.markdown("---")
+                # ----------------------------------
+                
                 st.write(f"**Target Concept / Formula Demanded:** `{row['Concept/Formula']}`")
                 st.write(f"**Your Choice:** `{row['Your Answer']}` | **Correct Choice:** `{row['Correct Answer']}`")
                 st.markdown("##### Performance Rationales")
