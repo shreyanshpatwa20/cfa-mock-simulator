@@ -39,16 +39,17 @@ def extract_text_from_pdf(file):
 
 def parse_pdfs_with_ai(api_key, q_text, a_text):
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # Switching to the universally available base pro model
+    model = genai.GenerativeModel('gemini-pro')
     
     prompt = f"""
     You are an expert CFA Level 1 preparation engine. Pair the following question texts with their respective correct answers and solutions. Split them into an exact list of individual structural questions.
     
-    CRITICAL SCHEMA: You must return valid JSON matching this exact structure:
+    CRITICAL SCHEMA: You must return valid JSON matching this exact structure. Return ONLY the JSON array and nothing else.
     [
       {{
         "question_id": 1,
-        "topic_area": "Exact CFA Topic Name (e.g., Quantitative Methods, Financial Statement Analysis, Fixed Income, Corporate Issuers, Economics, Derivatives, Alternative Investments, Equity Investments, Portfolio Management, Ethical and Professional Standards)",
+        "topic_area": "Quantitative Methods",
         "stem": "The clear question text",
         "options": {{"A": "Option text A", "B": "Option text B", "C": "Option text C"}},
         "correct_answer": "A, B, or C",
@@ -65,11 +66,20 @@ def parse_pdfs_with_ai(api_key, q_text, a_text):
     {a_text[:40000]}
     """
     
-    response = model.generate_content(
-        prompt, 
-        generation_config={"response_mime_type": "application/json"}
-    )
-    return json.loads(response.text)
+    # Generate response without the strict beta config
+    response = model.generate_content(prompt)
+    
+    # Manually clean markdown formatting the AI might add
+    raw_text = response.text.strip()
+    if raw_text.startswith("```json"):
+        raw_text = raw_text[7:]
+    elif raw_text.startswith("```"):
+        raw_text = raw_text[3:]
+        
+    if raw_text.endswith("```"):
+        raw_text = raw_text[:-3]
+        
+    return json.loads(raw_text.strip())
 
 # -----------------------------------------------------------------------------
 # STEP 1: UPLOAD SCREEN
