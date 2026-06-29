@@ -1,5 +1,5 @@
 streamlit
 pypdf
-google-generativeai
+google-generativeai>=0.6.0
 pandas
 protobuf
