@@ -11,7 +11,7 @@ import google.generativeai as genai
 st.set_page_config(page_title="CFA Level I Mock Simulator", layout="wide")
 
 if "step" not in st.session_state:
-    st.session_state.step = "upload"  # upload -> exam -> dashboard
+    st.session_state.step = "upload"
 if "questions" not in st.session_state:
     st.session_state.questions = []
 if "user_answers" not in st.session_state:
@@ -39,8 +39,8 @@ def extract_text_from_pdf(file):
 
 def parse_pdfs_with_ai(api_key, q_text, a_text):
     genai.configure(api_key=api_key)
-    # Switching to the universally available base pro model
-    model = genai.GenerativeModel('gemini-pro')
+    # Using your specific allowed model
+    model = genai.GenerativeModel('gemini-2.5-flash')
     
     prompt = f"""
     You are an expert CFA Level 1 preparation engine. Pair the following question texts with their respective correct answers and solutions. Split them into an exact list of individual structural questions.
@@ -66,10 +66,9 @@ def parse_pdfs_with_ai(api_key, q_text, a_text):
     {a_text[:40000]}
     """
     
-    # Generate response without the strict beta config
     response = model.generate_content(prompt)
     
-    # Manually clean markdown formatting the AI might add
+    # Safely clean up the AI's response to ensure it is pure JSON
     raw_text = response.text.strip()
     if raw_text.startswith("```json"):
         raw_text = raw_text[7:]
@@ -90,30 +89,6 @@ if st.session_state.step == "upload":
     
     api_key = st.text_input("Enter Gemini API Key", type="password", help="Get a free key from Google AI Studio")
     
-    # --- NEW DIAGNOSTIC BUTTON ---
-    if st.button("Diagnose API Key"):
-        if not api_key:
-            st.warning("Please enter an API key first.")
-        else:
-            try:
-                genai.configure(api_key=api_key)
-                st.write("Checking Google's servers for your allowed models...")
-                allowed_models = []
-                for m in genai.list_models():
-                    if 'generateContent' in m.supported_generation_methods:
-                        allowed_models.append(m.name)
-                
-                if allowed_models:
-                    st.success("Success! Your key has access to these models:")
-                    for model_name in allowed_models:
-                        st.code(model_name)
-                    st.info("Copy one of the model names above and paste it into the parse_pdfs_with_ai function.")
-                else:
-                    st.error("Your key is active, but Google says it has access to ZERO models.")
-            except Exception as e:
-                st.error(f"Authentication Failed: {e}")
-    # -----------------------------
-    
     col1, col2 = st.columns(2)
     with col1:
         q_file = st.file_uploader("Upload Questions PDF", type=["pdf"])
@@ -131,7 +106,6 @@ if st.session_state.step == "upload":
                     parsed_data = parse_pdfs_with_ai(api_key, q_text, a_text)
                     
                     st.session_state.questions = parsed_data
-                    # Initialize user states
                     for q in parsed_data:
                         qid = q["question_id"]
                         st.session_state.user_answers[qid] = None
@@ -143,13 +117,12 @@ if st.session_state.step == "upload":
                     st.session_state.last_switch_time = time.time()
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Parsing error: {str(e)}. Please check your file sizes or key.")
+                    st.error(f"Parsing error: {str(e)}")
 
 # -----------------------------------------------------------------------------
 # STEP 2: PROMETRIC-STYLE EXAM ENVIRONMENT
 # -----------------------------------------------------------------------------
 elif st.session_state.step == "exam":
-    # Global Timer Calculation (135 minutes = 8100 seconds)
     elapsed_total = time.time() - st.session_state.exam_start_time
     remaining_total = max(8100 - elapsed_total, 0)
     
@@ -160,7 +133,6 @@ elif st.session_state.step == "exam":
     mins, secs = divmod(int(remaining_total), 60)
     hours, mins = divmod(mins, 60)
     
-    # Header bar
     h_col1, h_col2, h_col3 = st.columns([2, 2, 1])
     with h_col1:
         st.subheader("CFA Institute Official Mock Simulation Environment")
@@ -168,7 +140,6 @@ elif st.session_state.step == "exam":
         st.metric("Time Remaining", f"{hours:02d}:{mins:02d}:{secs:02d}")
     with h_col3:
         if st.button("Submit Exam", type="secondary"):
-            # Log time for the final active question before leaving
             current_q_id = st.session_state.questions[st.session_state.current_index]["question_id"]
             now = time.time()
             st.session_state.time_logs[current_q_id] += (now - st.session_state.last_switch_time)
@@ -177,11 +148,9 @@ elif st.session_state.step == "exam":
 
     st.markdown("---")
     
-    # Active Question Data Load
     q_data = st.session_state.questions[st.session_state.current_index]
     qid = q_data["question_id"]
     
-    # Body Architecture
     body_col1, body_col2 = st.columns([3, 1])
     
     with body_col1:
@@ -189,11 +158,9 @@ elif st.session_state.step == "exam":
         st.markdown(f"### Question {qid}")
         st.markdown(q_data["stem"])
         
-        # Options mapping
         opts = q_data["options"]
         current_selection = st.session_state.user_answers[qid]
         
-        # Convert A, B, C selections back to index numbers for radio component stability
         opt_index = None
         if current_selection == "A": opt_index = 0
         elif current_selection == "B": opt_index = 1
@@ -202,13 +169,12 @@ elif st.session_state.step == "exam":
         choice = st.radio(
             "Select your answer:",
             options=["A", "B", "C"],
-            format_func=lambda x: f"{x}) {opts[x]}",
+            format_func=lambda x: f"{x}) {opts.get(x, '')}",
             index=opt_index,
             key=f"radio_{qid}"
         )
         st.session_state.user_answers[qid] = choice
         
-        # Lower Action Bar
         st.write("")
         b_col1, b_col2, b_col3 = st.columns(3)
         
@@ -231,14 +197,12 @@ elif st.session_state.step == "exam":
 
     with body_col2:
         st.markdown("##### Navigation Grid")
-        # Build out a grid matrix visualizer
         num_questions = len(st.session_state.questions)
         grid_cols = st.columns(5)
         for idx in range(num_questions):
             q_num = idx + 1
             target_id = st.session_state.questions[idx]["question_id"]
             
-            # Formulate UI indicators based on user status
             status_label = f"{q_num}"
             if st.session_state.flags[target_id]:
                 status_label += " 🚩"
@@ -259,7 +223,6 @@ elif st.session_state.step == "exam":
 elif st.session_state.step == "dashboard":
     st.title("📊 Official CFA Performance Analytics Dashboard")
     
-    # Process scores datasets
     records = []
     for q in st.session_state.questions:
         qid = q["question_id"]
@@ -269,19 +232,18 @@ elif st.session_state.step == "dashboard":
         
         records.append({
             "Question ID": qid,
-            "Topic Area": q["topic_area"],
-            "Concept/Formula": q["concept_or_formula_tested"],
+            "Topic Area": q.get("topic_area", "General"),
+            "Concept/Formula": q.get("concept_or_formula_tested", "N/A"),
             "Your Answer": u_ans if u_ans else "Unanswered",
             "Correct Answer": c_ans,
             "Status": "Correct" if is_correct else "Incorrect",
             "Time Spent (s)": round(st.session_state.time_logs[qid], 1),
-            "Explanation Correct": q["explanation_correct"],
-            "Explanation Incorrect": q["explanation_incorrect"]
+            "Explanation Correct": q.get("explanation_correct", ""),
+            "Explanation Incorrect": q.get("explanation_incorrect", "")
         })
         
     df = pd.DataFrame(records)
     
-    # Global Level Aggregations
     total_q = len(df)
     correct_q = len(df[df["Status"] == "Correct"])
     score_percentage = (correct_q / total_q) * 100 if total_q > 0 else 0
@@ -297,7 +259,6 @@ elif st.session_state.step == "dashboard":
     
     with tab1:
         st.subheader("Granular Question Breakdown")
-        st.write("Click on any row element below to review individual metrics, duration metrics, formulas, and deep logic breakdowns.")
         
         for index, row in df.iterrows():
             status_color = "🟢" if row["Status"] == "Correct" else "🔴"
@@ -312,18 +273,15 @@ elif st.session_state.step == "dashboard":
                 
     with tab2:
         st.subheader("Actionable Remediation Roadmap")
-        st.write("These concepts were missed during your simulation. Focus core studies here to optimize recovery before exam day.")
         
         incorrect_df = df[df["Status"] == "Incorrect"]
         
         if len(incorrect_df) == 0:
             st.success("Excellent performance profile. Zero high-risk category items detected.")
         else:
-            # Table View
             display_table = incorrect_df[["Topic Area", "Concept/Formula", "Time Spent (s)"]].reset_index(drop=True)
             st.table(display_table)
             
-            # Text List Summarization
             st.markdown("🔍 **Bullet Checklist for Active Review:**")
             for topic in display_table["Topic Area"].unique():
                 concepts = display_table[display_table["Topic Area"] == topic]["Concept/Formula"].tolist()
