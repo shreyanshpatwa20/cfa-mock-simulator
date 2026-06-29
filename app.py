@@ -39,7 +39,7 @@ def extract_text_from_pdf(file):
 
 def parse_pdfs_with_ai(api_key, q_text, a_text):
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     
     prompt = f"""
     You are an expert CFA Level 1 preparation engine. Pair the following question texts with their respective correct answers and solutions. Split them into an exact list of individual structural questions.
