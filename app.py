@@ -90,6 +90,30 @@ if st.session_state.step == "upload":
     
     api_key = st.text_input("Enter Gemini API Key", type="password", help="Get a free key from Google AI Studio")
     
+    # --- NEW DIAGNOSTIC BUTTON ---
+    if st.button("Diagnose API Key"):
+        if not api_key:
+            st.warning("Please enter an API key first.")
+        else:
+            try:
+                genai.configure(api_key=api_key)
+                st.write("Checking Google's servers for your allowed models...")
+                allowed_models = []
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        allowed_models.append(m.name)
+                
+                if allowed_models:
+                    st.success("Success! Your key has access to these models:")
+                    for model_name in allowed_models:
+                        st.code(model_name)
+                    st.info("Copy one of the model names above and paste it into the parse_pdfs_with_ai function.")
+                else:
+                    st.error("Your key is active, but Google says it has access to ZERO models.")
+            except Exception as e:
+                st.error(f"Authentication Failed: {e}")
+    # -----------------------------
+    
     col1, col2 = st.columns(2)
     with col1:
         q_file = st.file_uploader("Upload Questions PDF", type=["pdf"])
