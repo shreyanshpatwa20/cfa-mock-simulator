@@ -230,8 +230,16 @@ elif st.session_state.step == "dashboard":
         c_ans = q["correct_answer"]
         is_correct = (u_ans == c_ans)
         
+        records = []
+    for q in st.session_state.questions:
+        qid = q["question_id"]
+        u_ans = st.session_state.user_answers[qid]
+        c_ans = q["correct_answer"]
+        is_correct = (u_ans == c_ans)
+        
         records.append({
             "Question ID": qid,
+            "stem": q["stem"], # ADDED THIS LINE
             "Topic Area": q.get("topic_area", "General"),
             "Concept/Formula": q.get("concept_or_formula_tested", "N/A"),
             "Your Answer": u_ans if u_ans else "Unanswered",
